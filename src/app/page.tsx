@@ -8,7 +8,7 @@ export default function Home() {
           Aurora
         </h1>
         <p className="mt-4 text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
-          Analyze celestial object parameters to generate an AI-powered description and assess its characteristics.
+          Use a machine learning model to predict if a celestial object is an exoplanet based on its parameters.
         </p>
       </div>
       <ExoplanetAnalyzer />
