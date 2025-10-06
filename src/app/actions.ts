@@ -1,10 +1,8 @@
 'use server';
 
 import { z } from 'zod';
-// This is a placeholder. In a real environment, you would get this
-// from a config or environment variable.
-const CLOUD_FUNCTION_URL = 'https://us-central1-your-project-id.cloudfunctions.net/predict_exoplanet';
 
+const CLOUD_FUNCTION_URL = 'https://predictexoplanet-z2p2g74r5a-uc.a.run.app';
 
 const formSchema = z.object({
   planetOrbitalPeriod: z.coerce.number().positive({ message: "Must be a positive number." }),
@@ -41,25 +39,24 @@ export async function getExoplanetPredictionAction(
   }
 
   try {
-    // In a real application, you would replace this URL with your actual
-    // Cloud Function URL. You also need to make sure your function is deployed
-    // and CORS is configured to allow requests from your app.
-    // For now, we will mock the response.
-    console.log("Calling mock prediction service with:", parsed.data);
+    const response = await fetch(CLOUD_FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(parsed.data),
+    });
 
-    // Mocking the fetch call to the cloud function
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Prediction service returned an error: ${response.status} ${errorText}`);
+    }
 
-    const random = Math.random();
-    const mockPrediction = {
-        prediction: random > 0.5 ? 'Is an Exoplanet' : 'Not an Exoplanet',
-        confidence: (random * 30 + 70).toFixed(2) + '%',
-    };
+    const prediction: PredictionOutput = await response.json();
+    return { success: true, data: prediction };
 
-    return { success: true, data: mockPrediction };
-
-  } catch (e) {
+  } catch (e: any) {
     console.error(e);
-    return { success: false, error: 'An unexpected error occurred while communicating with the prediction service. Please try again later.' };
+    return { success: false, error: e.message || 'An unexpected error occurred while communicating with the prediction service. Please try again later.' };
   }
 }
