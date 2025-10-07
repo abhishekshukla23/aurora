@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 
-const CLOUD_FUNCTION_URL = 'https://predictexoplanet-z2p2g74r5a-uc.a.run.app';
+const CLOUD_FUNCTION_URL = 'https://predict-exoplanet-z2p2g74r5a-uc.a.run.app';
 
 const formSchema = z.object({
   planetOrbitalPeriod: z.coerce.number().positive({ message: "Must be a positive number." }),
