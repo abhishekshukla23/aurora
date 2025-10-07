@@ -54,6 +54,15 @@ export default function ExoplanetAnalyzer() {
 
   useEffect(() => {
     async function loadModel() {
+      // Temporarily override console.warn to suppress the "Unknown CPU vendor" message
+      const originalWarn = console.warn;
+      console.warn = (...data: any[]) => {
+        if (typeof data[0] === 'string' && data[0].includes('Unknown CPU vendor')) {
+          return;
+        }
+        originalWarn.apply(console, data);
+      };
+      
       try {
         if (typeof ort === 'undefined') {
           setError('ONNX Runtime is not available. Please check your internet connection or script import.');
@@ -64,6 +73,9 @@ export default function ExoplanetAnalyzer() {
       } catch (e: any) {
         console.error('Failed to load the ONNX model:', e);
         setError('Failed to load the prediction model. Please try refreshing the page.');
+      } finally {
+        // Restore original console.warn
+        console.warn = originalWarn;
       }
     }
     loadModel();
