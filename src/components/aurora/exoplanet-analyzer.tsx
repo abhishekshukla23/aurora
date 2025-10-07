@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { getExoplanetPredictionAction } from '@/app/actions';
-import type { PredictionOutput } from '@/app/actions';
+import type { InferenceSession, Tensor } from 'onnxruntime-web';
 
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -14,6 +13,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, Orbit, Hourglass, ArrowDownToLine, Globe, Sun, Star, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+declare const ort: {
+    InferenceSession: {
+        create(path: string): Promise<InferenceSession>;
+    };
+    Tensor: new (type: string, data: Float32Array, dims: number[]) => Tensor;
+};
 
 const formSchema = z.object({
   planetOrbitalPeriod: z.coerce.number({invalid_type_error: "Must be a number."}).positive({ message: "Must be a positive number." }),
@@ -25,6 +31,11 @@ const formSchema = z.object({
 });
 
 type FormData = z.infer<typeof formSchema>;
+
+type PredictionOutput = {
+  prediction: string;
+  confidence: string;
+};
 
 const formFields: { name: keyof FormData; label: string; placeholder: string; icon: React.ElementType }[] = [
   { name: 'planetOrbitalPeriod', label: 'Planet Orbital Period (days)', placeholder: 'e.g., 365.25', icon: Orbit },
@@ -39,6 +50,24 @@ export default function ExoplanetAnalyzer() {
   const [predictionResponse, setPredictionResponse] = useState<PredictionOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [session, setSession] = useState<InferenceSession | null>(null);
+
+  useEffect(() => {
+    async function loadModel() {
+      try {
+        if (typeof ort === 'undefined') {
+          setError('ONNX Runtime is not available. Please check your internet connection or script import.');
+          return;
+        }
+        const modelSession = await ort.InferenceSession.create('/model.onnx');
+        setSession(modelSession);
+      } catch (e: any) {
+        console.error('Failed to load the ONNX model:', e);
+        setError('Failed to load the prediction model. Please try refreshing the page.');
+      }
+    }
+    loadModel();
+  }, []);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -53,16 +82,41 @@ export default function ExoplanetAnalyzer() {
   });
 
   async function onSubmit(data: FormData) {
+    if (!session) {
+      setError("Prediction model is not loaded yet.");
+      return;
+    }
     setIsLoading(true);
     setError(null);
     setPredictionResponse(null);
 
-    const result = await getExoplanetPredictionAction(data);
+    try {
+      const inputData = new Float32Array([
+        data.planetOrbitalPeriod,
+        data.planetTransitDuration,
+        data.planetTransitDepth,
+        data.planetRadius,
+        data.stellarEffectiveTemperature,
+        data.stellarRadius,
+      ]);
+      const tensor = new ort.Tensor('float32', inputData, [1, 6]);
+      
+      const feeds: Record<string, Tensor> = {};
+      feeds[session.inputNames[0]] = tensor;
 
-    if (result.success) {
-      setPredictionResponse(result.data);
-    } else {
-      setError(result.error);
+      const results = await session.run(feeds);
+      
+      const label = results[session.outputNames[0]].data[0];
+      const probability = results[session.outputNames[1]].data[label === 1 ? 1 : 0];
+
+      setPredictionResponse({
+        prediction: label === 1 ? 'Is an Exoplanet' : 'Not an Exoplanet',
+        confidence: `${(probability * 100).toFixed(2)}%`,
+      });
+
+    } catch (e: any) {
+        console.error('Error during inference:', e);
+        setError(`An error occurred during prediction: ${e.message}`);
     }
 
     setIsLoading(false);
@@ -96,8 +150,8 @@ export default function ExoplanetAnalyzer() {
                   )}
                 />
               ))}
-              <Button type="submit" disabled={isLoading} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold text-base py-6">
-                {isLoading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Analyzing...</> : 'Predict Exoplanet'}
+              <Button type="submit" disabled={isLoading || !session} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold text-base py-6">
+                {isLoading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Analyzing...</> : (!session ? 'Loading Model...' : 'Predict Exoplanet')}
               </Button>
             </form>
           </Form>
@@ -110,7 +164,7 @@ export default function ExoplanetAnalyzer() {
             {isLoading && (
               <div className="flex flex-col items-center justify-center text-primary">
                 <Loader2 className="h-12 w-12 animate-spin" />
-                <p className="mt-4 font-headline text-lg">Running prediction model...</p>
+                <p className="mt-4 font-headline text-lg">Running prediction...</p>
               </div>
             )}
             
@@ -147,8 +201,17 @@ export default function ExoplanetAnalyzer() {
             
             {!isLoading && !error && !predictionResponse && (
               <div className="text-center text-muted-foreground">
-                <p className="font-headline text-lg">Awaiting Input</p>
-                <p>Fill in the parameters and run the prediction model.</p>
+                 { !session ? (
+                    <>
+                      <Loader2 className="mx-auto h-10 w-10 animate-spin text-primary" />
+                      <p className="font-headline text-lg mt-4">Loading prediction model...</p>
+                    </>
+                 ) : (
+                    <>
+                      <p className="font-headline text-lg">Awaiting Input</p>
+                      <p>Fill in the parameters and run the prediction model.</p>
+                    </>
+                 )}
               </div>
             )}
           </div>
