@@ -3,6 +3,7 @@
 
 name: Deploy to Firebase Hosting
 
+# This tells the robot to run every time you push to the 'main' branch.
 on:
   push:
     branches:
@@ -10,7 +11,7 @@ on:
 
 jobs:
   build_and_deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Use a standard Linux machine
     
     steps:
       # Step 1: Get the code from your repository
@@ -21,14 +22,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20' # Use a modern version of Node.js
 
       # Step 3: Install dependencies and build the app
-      # We run these commands from the root of the repository
+      # This is the part that was failing on your computer.
       - name: Install and Build
         run: |
           npm ci
           npm run build
+        working-directory: ./aurora # IMPORTANT: Run these commands inside your 'aurora' folder
         
       # Step 4: Deploy the built app to Firebase
       - name: Deploy to Firebase Hosting
@@ -37,4 +39,6 @@ jobs:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           channelId: live
-          projectId: studio-7383784852-a4b66 # Your actual Project ID
+          projectId: studio-7383784852-a4b66 # <-- IMPORTANT: REPLACE THIS
+          target: aurora # Optional: if you have multiple sites
+          entryPoint: ./aurora # The root of your app
