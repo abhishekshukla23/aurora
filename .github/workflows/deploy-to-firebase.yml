@@ -30,7 +30,7 @@ jobs:
         run: |
           npm ci
           npm run build
-        working-directory: ./aurora # IMPORTANT: Run these commands inside your 'aurora' folder
+        working-directory: aurora # IMPORTANT: Run these commands inside your 'aurora' folder
         
       # Step 4: Deploy the built app to Firebase
       - name: Deploy to Firebase Hosting
@@ -41,4 +41,4 @@ jobs:
           channelId: live
           projectId: studio-7383784852-a4b66 # <-- IMPORTANT: REPLACE THIS
           target: aurora # Optional: if you have multiple sites
-          entryPoint: ./aurora # The root of your app
+          entryPoint: aurora # The root of your app
