@@ -1,4 +1,4 @@
-import ExoplanetAnalyzer from '@/components/aurora/exoplanet-analyzer';
+import { ExoplanetAnalyzer } from  '@/components/aurora/exoplanet-analyzer';
 
 export default function Home() {
   return (
